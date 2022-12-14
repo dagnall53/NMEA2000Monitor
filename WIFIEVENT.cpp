@@ -155,8 +155,8 @@ int Readtcpport() {
 void SetWIFI(const char* SSID_AP, const char* PW_AP, const char* IP_AP, const char* SSID_ST, const char* PW_ST, const char* IP_ST, byte _MODE) {  // sets defaults if blank
   if (SSID_AP != "") {
     strcpy(ssidAP, SSID_AP);
-  } else {
-    strcpy(ssidAP, "NMEA2000Monitor");
+  } else {  
+     strcpy(ssidAP, "NMEA2000Monitor");
   }
   if (PW_AP != "") {
     strcpy(passwordAP, PW_AP);
@@ -172,6 +172,7 @@ void SetWIFI(const char* SSID_AP, const char* PW_AP, const char* IP_AP, const ch
   if (SSID_ST != "") {
     strcpy(ssidST, SSID_ST);
   } else {
+    _MODE= AP_ONLY; // NO SSID, so AP ONLY 
     strcpy(ssidST, "EXT NETWORK");
   }
   if (PW_ST != "") {

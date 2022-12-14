@@ -27,6 +27,7 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <WebServer.h>
+#include "Webpage.h"
  #include "WebsocketInterpreter.h";
 //tActisenseReader ActisenseReader;
 WiFiUDP Udp;
@@ -42,15 +43,14 @@ Stream *ReadStream = &READ_STREAM;
 Stream *ForwardStream = &FORWARD_STREAM;
 
 
-// Make it easy to log into the local network for testing:
-#include "Passwords.h" 
-// Add a Passwords.h file in the sketch folder with these correctly filled in
-//************************************************************************
-//char *ssid = "My Home network";
-//char *password = "My Password";
-//************************************************************************
+
 void setup() {
-  SetWIFI("N2000_Monitor", "", "", ssid, password, "192.168.0.120", 0x00);  // Sets Ap  EXT etc FIXED IP if needed ...
+  // to setup to connect to a network use this:
+ //SetWIFI("N2000_Monitor", "", "", ssid, password, "192.168.0.120", 0x00);  // Sets Ap  EXT etc FIXED IP if needed ...
+  // just use AP (N2000_Monitor), (PW 12345678) 
+   SetWIFI("N2000_Monitor", "", "", "","", "", 0x0F);  // Sets up  Ap only
+ 
+  
   SetPorts(2002, 3003);  // just set ports -- We set UDP= 2002 here. TCP=3003 (not used at present)
   StartWiFi();
   _WebsocketsSetup();

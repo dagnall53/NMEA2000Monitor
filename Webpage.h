@@ -4,7 +4,7 @@
 #include "WebsocketInterpreter.h"
 #include <WebSocketsServer.h> // https://github.com/Links2004/arduinoWebSockets
 
-
+// NB WEBPAGE "DEMOWEBPAGE_HTML" is defined in a char lower down.
 
 WebSocketsServer webSocket = WebSocketsServer(81);
 WebServer webserver(80);  // for the webbrowser 
@@ -33,13 +33,6 @@ void SetPauseFlag(bool set) {
 bool Read_PauseFlag() {
   return _PauseFlag;
 }
-
-// void _setPGNFlag(bool set) {
-//   _sendPGN = set;
-// }
-// bool Read_PGNFlag(void) {
-//   return _sendPGN;
-// }
 
 void SetSerialPGNFLAG(bool set) {
   _SerialPGN = set;
