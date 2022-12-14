@@ -1,5 +1,5 @@
 // Demo: Supplies a Wepage to show what PGN have been seen.
-//
+//  
 // Based on 
 //   NMEA2000 library. Bus listener and sender.
 //   Sends all bus data to serial in Actisense format.
@@ -7,7 +7,7 @@
 //   Use this e.g. with NMEA Simulator (see. http://www.kave.fi/Apps/index.html) to send simulated data to the bus.
 //   Meanwhile you can define other stream to different port so that you can send data with NMEA Simulator and listen it on other port with
 //   Actisense NMEA Reader.
-//   I have tried to get the Actisense Reader to send "actisense over UDP- but this isso far unsucessful.. see notes below. " 
+//   I have tried to get the Actisense Reader to send "actisense over UDP- but this is -so far- unsucessful.. see notes below. " 
 //   ******************
 
 
@@ -42,14 +42,14 @@ WiFiUDP Udp;
 Stream *ReadStream = &READ_STREAM;
 Stream *ForwardStream = &FORWARD_STREAM;
 
-
+unsigned long _loopTiming;
 
 void setup() {
-  // to setup to connect to a network use this:
- //SetWIFI("N2000_Monitor", "", "", ssid, password, "192.168.0.120", 0x00);  // Sets Ap  EXT etc FIXED IP if needed ...
-  // just use AP (N2000_Monitor), (PW 12345678) 
-   SetWIFI("N2000_Monitor", "", "", "","", "", 0x0F);  // Sets up  Ap only
- 
+   // TO just use AP (N2000_Monitor), (PW 12345678) 
+  SetWIFI("N2000_Monitor", "", "", "","", "", 0x0F);  // Sets up  AP only
+  // to setup to connect to a Home network use something like this to specify the ssid and pw,, and IP if you want a fixed ip.:
+  // SetWIFI("N2000_Monitor", "", "", "SSID", "password", "192.168.0.120", 0x00);  // Sets Ap + EXT etc with FIXED IP if needed ...
+  
   
   SetPorts(2002, 3003);  // just set ports -- We set UDP= 2002 here. TCP=3003 (not used at present)
   StartWiFi();
@@ -80,12 +80,16 @@ void setup() {
   //ActisenseReader.SetMsgHandler(HandleStreamN2kMsg);
 
   NMEA2000.Open();
+
+_loopTiming=millis();
 }
 
 //NMEA 2000 message handler.. NOTE the Stream part (NMEA2000.SetForwardStream) works independently of this handler!! 
 void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
   // This is called on every N2k message Rx,
-  if (Read_PauseFlag()){WebsocketDebugSend("* PGN:%i  (%S)",N2kMsg.PGN,PGNDecode(N2kMsg.PGN)); }  // Could it really be this simple? AVOID USE OF <> as it will screw up the web display in html!!!! 
+  if (!Read_PauseFlag()){WebsocketMonitorDataSendf("* PGN:%i Source:%i (%S)",N2kMsg.PGN,N2kMsg.Source,PGNDecode(N2kMsg.PGN)); }  // 
+  
+  //if (!Read_PauseFlag()){WebsocketMonitorDataSendf("* PGN:%i  (%S)",N2kMsg.PGN,PGNDecode(N2kMsg.PGN)); }  // Could it really be this simple? AVOID USE OF <> as it will screw up the web display in html!!!! 
   //Serial.print("Got PGN:");Serial.println(PGNDecode(N2kMsg.PGN));  //NB The SERIAL PRINT does not interfere with the Actisense Reader in serial connected mode!
   SendBufToUDPf("--PGN<%i><%S>\r\n", N2kMsg.PGN, PGNDecode(N2kMsg.PGN)); // SHOW THE pgn AND DESCRIPTION ON UDP, PORT 2002 
   }
@@ -94,6 +98,9 @@ void HandleStreamN2kMsg(const tN2kMsg &N2kMsg) {
   // Is Only called by the Actisense RECEIVE portion!!
   // NMEA2000.SendMsg(N2kMsg,-1);
 }
+extern IPAddress sta_ip;   // identify sta_ip so we can access it in the webpage updates every second. 
+extern char ssidAP[16];      // ssid of the network to create in AP mode
+extern char ssidST[16];      // ssid of the network to connect in STA mode
 
 void loop() {
   CheckWiFi();
@@ -101,7 +108,16 @@ void loop() {
   //  ActisenseReader.ParseMessages(); //Switch on if we are using the Actisense streams
   WEBSERVE_LOOP();
   _WebsocketLOOP();
- 
+ if((_loopTiming-millis())>=1000){  // inserted as a test of how to change Text in an identified "id" in a div on a webpage using websocks.
+   _loopTiming=millis();
+   WebsocketDataSendf("WEBPAGE TEXT0 Running Time:%i ",millis()/1000);  // Spacing Critical between "WEBPAGE" and "ID"- there must be only one space!
+    if(ReadIsConnected()&&ReadGatewaySetup()){
+      WebsocketDataSendf("WEBPAGE TEXTIP SSID_AP:<b><i>%s</i></b>   Connected to:<b><i>%s</i></b> @IP:<b><i>%i.%i.%i.%i</i></b>  ", 
+                   ssidAP,ssidST, sta_ip[0],sta_ip[1],sta_ip[2],sta_ip[3]);}
+      else { WebsocketDataSendf("WEBPAGE TEXTIP AP:<b><i>%s</i></b>   ",ssidAP);}             
+
+   WebsocketDataSendf("WEBPAGE TEXT1 <small><center> External-Network_IP:<b><i> %i.%i.%i.%i</i></b> </small></center>", sta_ip[0],sta_ip[1],sta_ip[2],sta_ip[3]);
+ }
 }
 
 char * PGNDecode(int PGN) { // decode the PGN to a readable name.. Useful for monitoring the bus? 

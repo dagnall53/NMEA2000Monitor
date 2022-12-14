@@ -9,7 +9,7 @@
 WebSocketsServer webSocket = WebSocketsServer(81);
 WebServer webserver(80);  // for the webbrowser 
 
-bool _sendPGN = true;  //  will send PGN summaries. 
+
 bool _sendNMEA = false;  // makes it easier to check webpage is connected with websocks if it defaults true
 bool _SerialPGN = false;
 bool _PauseFlag = true;
@@ -77,12 +77,12 @@ static const char PROGMEM DEMOWEBPAGE_HTML[] = R"rawliteral(
     { if (terminalPauseFlag)
       { terminalPauseFlag = false;
         document.getElementById("connectTerminalButton").innerHTML = "<b>Paused</b>";
-        websock.send("WEBMONITOR PAUSE OFF");
+        websock.send("WEBMONITOR PAUSE ON");
       }
       else
       { terminalPauseFlag = true;
         document.getElementById("connectTerminalButton").innerHTML = "<b>ON</b>";
-        websock.send("WEBMONITOR PAUSE ON");
+        websock.send("WEBMONITOR PAUSE OFF");
       }
     }
 
@@ -97,6 +97,16 @@ static const char PROGMEM DEMOWEBPAGE_HTML[] = R"rawliteral(
         websock.send("WEBMONITOR NMEA");
       }
     }
+
+  function replaceText(){
+     //var divID =wsMessageArray[1]; // where to put it ..
+     var text =""; 
+     for (let i = 2; i < wsMessageArray.length; i++) {
+      text += wsMessageArray[i] + " ";
+     }
+     document.getElementById(wsMessageArray[1]).innerHTML = text;
+
+  }  
 
 
  function serialEventHandler()
@@ -123,7 +133,11 @@ static const char PROGMEM DEMOWEBPAGE_HTML[] = R"rawliteral(
       websock.onopen = function(evt)
       {
         console.log('websock open');
-        //do anything here for setup if needed 
+        // send PAUSE OFF -- To start any send.. 
+        terminalPauseFlag = false;
+        document.getElementById("connectTerminalButton").innerHTML = "<b>-Run-</b>";
+        websock.send("WEBMONITOR PAUSE OFF");
+        //do anything else here for setup if needed 
       };
       websock.onclose = function(evt)
       {
@@ -142,6 +156,10 @@ static const char PROGMEM DEMOWEBPAGE_HTML[] = R"rawliteral(
           if(wsMessageArray[0] === "SERIAL")
            {
            serialEventHandler();
+          }  
+          if(wsMessageArray[0] === "WEBPAGE")
+           {
+           replaceText();
           }  
         }
       };
@@ -202,7 +220,9 @@ static const char PROGMEM DEMOWEBPAGE_HTML[] = R"rawliteral(
 }
 </style>
 <body onload="javascript:start();" id="mainBody">
-<h2>NMEA2000 Monitor</h2>
+<center><h2>NMEA2000 Monitor</h2><div id= "TEXT0"> Top text</div><br>
+<div id= "TEXTIP"> IPdata </div><br>
+</center>
 <div class= "absolute" ><button id="connectTerminalButton" class="VertBoxStyle"  onclick="terminalPause()"><b>Pause?</b></button> </div>
 <div class= "absolute2" ><button id="ModeTerminalButton" class="VertBoxStyle"  onclick="terminalMode()"><b>-TBD-</b></button> </div>
 <div class= "absolute3" ><button id="TerminalClearButton" class="VertBoxStyle"  onclick="terminalClear()"><b>CLEAR</b></button> </div>
@@ -222,7 +242,7 @@ Other Message decodes will be added later.
     <form action="NMEA">
      <center><input class="but" style="width:20%;" type="submit" value="HomePage"></center>
      </form>
-<div>More text, potentialy a footer. <br> </div>
+<div id= "TEXT1" >More text, potentialy a footer. <br> </div>
 
 </body>
 

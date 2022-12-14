@@ -36,7 +36,10 @@ void StartWiFi();                   // used to start WIFI  startup
 
 void SetOutOfSetup(bool set);      // used to advise WIFI that Setup() has finished (/is running)
 bool ReadOutOfSetup(void);         // to allow main code to read this boolean (? not used ??) 
-bool ReadIsConnected(void);
+
+bool ReadIsConnected(void);        // these allow monitoring of the state oc "connectedness"
+bool ReadGatewaySetup(void);       // only set when valid IP for Ext network has been obtained 
+
 String IPADDasString(IPAddress IPAD); //pass back an IP address x.x.x.x  .. or add "extern IPAddress ap_ip;" etc.  
 // void StopPorts();// now in main ino.. but they call the StartWiFiPorts().. 
 // void StartPorts();
@@ -44,6 +47,7 @@ void StartWiFiPorts( bool set);    // equivalent to StartPorts() / StopPorts() W
 
 
 void SendBufToTCP(const char *buf); 
+void SendBufToTCPf(const char* fmt, ...) ; //printf type send
 void SendBufToUDP(const char *buf); 
 void SendBufToUDPf(const char* fmt, ...) ; //printf type send
 

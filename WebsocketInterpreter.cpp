@@ -48,9 +48,25 @@ void webSocketDataInterpreter(WebSocketsServer &WEBSOCKETOBJECT, String WEBSOCKE
     }
   }
 }
+
+
+
+
+
 static char msg[129] = { '\0' };
-char _sendTOTerm[13] = "SERIAL UART ";
-void WebsocketDebugSend(const char *fmt, ...) {
+char _sendTOTerm[13] = "SERIAL UART ";  // saves adding it 
+
+void WebsocketDataSendf(const char *fmt, ...) {
+  va_list args;  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  //Serial.println("\r\n*** WDSEND " );Serial.println(msgOUT);  Serial.println("*********************** " );
+  webSocket.broadcastTXT(msg);
+  //Serial.println("     Sent Websocket Broadcast!");
+}
+
+void WebsocketMonitorDataSendf(const char *fmt, ...) {
 
   va_list args;  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
   va_start(args, fmt);

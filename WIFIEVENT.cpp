@@ -71,6 +71,9 @@ static char msg[300] = { '\0' };  // used in message buildup
 bool ReadIsConnected(void) {
   return IsConnected;
 }
+bool ReadGatewaySetup(void){
+  return GateWayIsSet;
+}
 
 String IPADDasString(IPAddress IPAD) {
   String st = "";
@@ -94,6 +97,7 @@ void SendBufToTCP(const char* buf) {  // simple version of TCP and UDP sending N
     tcpclient.print(buf);
   }
 }
+
 void SendBufToUDP(const char* buf) {  //Send to BOTH specific UDP IP and the general AP UDP Ip
   if ((MAIN_MODE == AP_AND_STA) && IsConnected) {
     Udp.beginPacket(udp_st, udpport);
@@ -113,6 +117,17 @@ void SendBufToUDPf(const char* fmt, ...) {  //complete object type suitable for 
   // add checksum?
   int len = strlen(msg);
   SendBufToUDP(msg);
+}
+
+
+void SendBufToTCPf(const char* fmt, ...) {  //complete object type suitable for holding the information needed by the macros va_start, va_copy, va_arg, and va_end.
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, 128, fmt, args);
+  va_end(args);
+  // add checksum?
+  int len = strlen(msg);
+  SendBufToTCP(msg);
 }
 
 ///************  WIFI "STUFF"
