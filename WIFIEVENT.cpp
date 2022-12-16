@@ -98,6 +98,18 @@ void SendBufToTCP(const char* buf) {  // simple version of TCP and UDP sending N
   }
 }
 
+
+void WriteBufToUDP(const uint8_t *buffer, size_t size) {  //Writes to BOTH specific UDP IP and the general AP UDP Ip
+  if ((MAIN_MODE == AP_AND_STA) && IsConnected) {
+    Udp.beginPacket(udp_st, udpport);
+    Udp.write(buffer,size);
+    Udp.endPacket();
+  }
+  Udp.beginPacket(udp_ap, udpport);
+  Udp.write(buffer,size);
+  Udp.endPacket();
+}
+
 void SendBufToUDP(const char* buf) {  //Send to BOTH specific UDP IP and the general AP UDP Ip
   if ((MAIN_MODE == AP_AND_STA) && IsConnected) {
     Udp.beginPacket(udp_st, udpport);

@@ -51,6 +51,8 @@ void SendBufToTCPf(const char* fmt, ...) ; //printf type send
 void SendBufToUDP(const char *buf); 
 void SendBufToUDPf(const char* fmt, ...) ; //printf type send
 
+void WriteBufToUDP(const uint8_t *buffer, size_t size);  // Writes buffer[len,size] to UDP
+
 
 
 
