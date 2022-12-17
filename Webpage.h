@@ -196,21 +196,21 @@ static const char PROGMEM DEMOWEBPAGE_HTML[] = R"rawliteral(
 }
 .absolute3 {
   position: absolute;
-  top: 40va;
+  top: 10px;
   right: 240px;
   width: 100px;
   height: 30px;
   }
 .absolute2 {
   position: absolute;
-  top: 40va;
+  top: 10px;
   right: 130px;
   width: 100px;
   height: 30px;
   }
 .absolute {
   position: absolute;
-  top: 40va;
+  top: 10px;
   right: 20px;
   width: 100px;
   height: 30px;
