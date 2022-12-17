@@ -47,11 +47,12 @@ void StartWiFiPorts( bool set);    // equivalent to StartPorts() / StopPorts() W
 
 
 void SendBufToTCP(const char *buf); 
+void WriteBufToTCP(const uint8_t *buffer, size_t size); // simple version of TCP write 
 void SendBufToTCPf(const char* fmt, ...) ; //printf type send
 void SendBufToUDP(const char *buf); 
 void SendBufToUDPf(const char* fmt, ...) ; //printf type send
 
-void WriteBufToUDP(const uint8_t *buffer, size_t size);  // Writes buffer[len,size] to UDP
+void WriteBufToUDP(const uint8_t *buffer, size_t size); // Writes buffer[len,size] to UDP
 
 
 

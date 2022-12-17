@@ -200,32 +200,29 @@ static const char PROGMEM DEMOWEBPAGE_HTML[] = R"rawliteral(
   right: 240px;
   width: 100px;
   height: 30px;
-  border: 1px solid blue;
-}
+  }
 .absolute2 {
-  position: absolute;
-  top: 40va;
-  right: 20px;
-  width: 100px;
-  height: 30px;
-  border: 1px solid blue;
-}
-.absolute {
   position: absolute;
   top: 40va;
   right: 130px;
   width: 100px;
   height: 30px;
-  border: 1px solid blue;
-}
+  }
+.absolute {
+  position: absolute;
+  top: 40va;
+  right: 20px;
+  width: 100px;
+  height: 30px;
+ }
 </style>
 <body onload="javascript:start();" id="mainBody">
 <center><h2>NMEA2000 Monitor</h2><div id= "TEXT0"> Top text</div><br>
 <div id= "TEXTIP"> IPdata </div><br>
 </center>
-<div class= "absolute" ><button id="connectTerminalButton" class="VertBoxStyle"  onclick="terminalPause()"><b>Pause?</b></button> </div>
-<div class= "absolute2" ><button id="ModeTerminalButton" class="VertBoxStyle"  onclick="terminalMode()"><b>-TBD-</b></button> </div>
-<div class= "absolute3" ><button id="TerminalClearButton" class="VertBoxStyle"  onclick="terminalClear()"><b>CLEAR</b></button> </div>
+<div class= "absolute2" ><button id="connectTerminalButton" class="VertBoxStyle"  onclick="terminalPause()"><b>Pause?</b></button> </div>
+<div class= "absolute3" ><button id="ModeTerminalButton" class="VertBoxStyle"  onclick="terminalMode()"><b>-TBD-</b></button> </div>
+<div class= "absolute" ><button id="TerminalClearButton" class="VertBoxStyle"  onclick="terminalClear()"><b>CLEAR</b></button> </div>
 
 <p>This will display received PGN numbers and interpretation where known. This data is also being sent as a UDP send on port 2002.<br>
 Actisense encoded N2K messages are being sent from the USB port for decode by the Actisense NMEA reader<br> 
