@@ -58,8 +58,7 @@ void setup() {
   SetWIFI("N2000_Monitor", "", "", "", "", "", 0x0F);  // Sets up  AP only
   // to setup to connect to a Home network use something like this to specify the ssid and pw,, and IP if you want a fixed ip.:
   // SetWIFI("N2000_Monitor", "", "", "SSID", "password", "192.168.0.120", 0x00);  // Sets Ap + EXT etc with FIXED IP if needed ...
-  SetWIFI("N2000_Monitor", "", "", "VM7135825", "cxy6cfhdMqwg", "192.168.0.120", 0x00);  // Sets Ap + EXT etc with FIXED IP if needed ...
-
+ 
   SetPorts(2000, 3000);  // just set ports --
   StartWiFi();
   _WebsocketsSetup();
