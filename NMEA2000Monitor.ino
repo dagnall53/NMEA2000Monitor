@@ -45,11 +45,11 @@ Stream *ForwardStream = &FORWARD_STREAM;
 
 unsigned long _loopTiming;
 unsigned long _debugTiming;
-// for testing, lots of options for sending.. 
+// for testing, lots of options for sending..
 bool SendActisenseUDP = true;
 bool SendActisenseTCP = true;
-bool SendActisenseSerial = true; //(needs UDP as well) // my n2K message "triggered" version
-bool SendActisenseSerialStream=false;  // the "background streaming" approach to USB "
+bool SendActisenseSerial = true;         //(needs UDP as well) // my n2K message "triggered" version
+bool SendActisenseSerialStream = false;  // the "background streaming" approach to USB "
 
 
 void setup() {
@@ -58,7 +58,7 @@ void setup() {
   SetWIFI("N2000_Monitor", "", "", "", "", "", 0x0F);  // Sets up  AP only
   // to setup to connect to a Home network use something like this to specify the ssid and pw,, and IP if you want a fixed ip.:
   // SetWIFI("N2000_Monitor", "", "", "SSID", "password", "192.168.0.120", 0x00);  // Sets Ap + EXT etc with FIXED IP if needed ...
- 
+  
   SetPorts(2000, 3000);  // just set ports --
   StartWiFi();
   _WebsocketsSetup();
@@ -71,8 +71,9 @@ void setup() {
 
   FORWARD_STREAM.begin(115200);  // or no serial!
   // ***** Comment out for debugging with less data on serial port
-  if (SendActisenseSerialStream){
-  NMEA2000.SetForwardStream(ForwardStream);}  // let it send out Actisense on USB so we can use the Actisense NMEA reader
+  if (SendActisenseSerialStream) {
+    NMEA2000.SetForwardStream(ForwardStream);
+  }  // let it send out Actisense on USB so we can use the Actisense NMEA reader
   //NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);  // Show bus data in clear text (N2K ASCII)
 
 
@@ -98,14 +99,9 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
   // This is called on every N2k message Rx,
 
   if (!Read_PauseFlag()) { WebsocketMonitorDataSendf("* PGN:%i Source:%i (%S)", N2kMsg.PGN, N2kMsg.Source, PGNDecode(N2kMsg.PGN)); }  //
-  if (!SendActisenseUDP) { SendBufToUDPf("--PGN<%i><%S>\r\n", N2kMsg.PGN, PGNDecode(N2kMsg.PGN)); }                                   // SHOW THE pgn AND DESCRIPTION ON UDP, PORT 2002
-  else {
-    _SendinActisenseFormat(N2kMsg, true);
-  }
-  if (!SendActisenseTCP) { SendBufToTCPf("--PGN<%i><%S>\r\n", N2kMsg.PGN, PGNDecode(N2kMsg.PGN)); }  // SHOW THE pgn AND DESCRIPTION ON UDP, PORT 2002
-  else {
-    _SendinActisenseFormat(N2kMsg, false);
-  }
+  if (!SendActisenseUDP) { SendBufToUDPf("--PGN<%i><%S>\r\n", N2kMsg.PGN, PGNDecode(N2kMsg.PGN)); } // SHOW THE pgn AND DESCRIPTION ON UDP, PORT 2002
+  if (!SendActisenseTCP) { SendBufToTCPf("--PGN<%i><%S>\r\n", N2kMsg.PGN, PGNDecode(N2kMsg.PGN)); } // SHOW THE pgn AND DESCRIPTION ON tcp, PORT 2002
+  _SendinActisenseFormat(N2kMsg, SendActisenseUDP, SendActisenseTCP, SendActisenseSerial);
 }
 
 void HandleStreamN2kMsg(const tN2kMsg &N2kMsg) {
@@ -126,7 +122,7 @@ void Animate() {  // inserted as a test of how to change Text in an identified "
   } else {
     WebsocketDataSendf("WEBPAGE TEXTIP AP:<b><i>%s</i></b>   ", ssidAP);
   }
-  Serial.println(".");  // keep alive for serial port
+  //Serial.println(".");  // keep alive for serial port
 }
 
 extern bool IsTcpClient;
@@ -239,36 +235,6 @@ void _PrintActisenseinTXT(const tN2kMsg &N2kMsg) {
 }
 
 
-// Endian swap test // covering all options! 
- unsigned char _ActisenseMsgBuf[400];
-void EndianSwap( size_t size, bool _byte, bool _order) {
-  unsigned char temp[400];
-  unsigned char _tempbyte;
-  for (int i = 0; i <= size; i++) {
-    if (_order) {
-      temp[i] = _ActisenseMsgBuf[size - i];
-    } else {
-      temp[i] = _ActisenseMsgBuf[i];
-    }
-    if (_byte) {
-      _tempbyte = 0;
-      if ((temp[i] & 128) == 128) { _tempbyte = _tempbyte | 1; }
-      if ((temp[i] & 64) == 64) { _tempbyte = _tempbyte | 2; }
-      if ((temp[i] & 32) == 32) { _tempbyte = _tempbyte | 4; }
-      if ((temp[i] & 16) == 16) { _tempbyte = _tempbyte | 8; }
-      if ((temp[i] & 8) == 8) { _tempbyte = _tempbyte | 16; }
-      if ((temp[i] & 4) == 4) { _tempbyte = _tempbyte | 32; }
-      if ((temp[i] & 2) == 2) { _tempbyte = _tempbyte | 64; }
-      if ((temp[i] & 1) == 1) { _tempbyte = _tempbyte | 128; }
-      temp[i] = _tempbyte;      
-    }
-  }
-  for (int i = 0; i <= size; i++) {
-    _ActisenseMsgBuf[i]=temp[i];
-  }
-
-}
-
 
 
 
@@ -287,13 +253,17 @@ void _debugPrint(const uint8_t *buffer, size_t size, String msg) {
 //*****************************************************************************
 // // Actisense Format:
 // // <10><02><93><length (1)><priority (1)><PGN (3)><destination (1)><source (1)><time (4)><len (1)><data (len)><CRC (1)><10><03>
-void _SendinActisenseFormat(const tN2kMsg &N2kMsg, bool udp) {  // to udp if bool is true else TCP
+void _SendinActisenseFormat(const tN2kMsg &N2kMsg, bool udpsend, bool tcpsend, bool serialsend) {  // to udp if bool is true else TCP
+
+  if (!udpsend && !tcpsend && !serialsend) { return; }
+
   unsigned long _PGN = N2kMsg.PGN;
   unsigned long _MsgTime = N2kMsg.MsgTime;
   uint8_t msgIdx = 0;
   int byteSum = 0;
   uint8_t CheckSum;
- // unsigned char _ActisenseMsgBuf[400];
+  unsigned char _ActisenseMsgBuf[400];
+
 
   //if (port==0 || !IsValid()) return;
   // Serial.print("freeMemory()="); Serial.println(freeMemory());
@@ -330,29 +300,10 @@ void _SendinActisenseFormat(const tN2kMsg &N2kMsg, bool udp) {  // to udp if boo
 
   _ActisenseMsgBuf[msgIdx++] = 0x10;
   _ActisenseMsgBuf[msgIdx++] = _EndOfText;
-  // can now  do (write) something with (_ActisenseMsgBuf,msgIdx) once we  get here!
-  if(SendActisenseSerial && udp ){Serial.write( _ActisenseMsgBuf,msgIdx);} // only if UDP is on.. (reduce traffic in tests)
-  // playing with endianness
- // Serial.println();
-  //_debugPrint(_ActisenseMsgBuf, msgIdx,"start"); // Testing each endianswap in turn.. not (false,true) // not true,false // not true true //blast!!
-  // EndianSwap( msgIdx, true, true);
-  // _debugPrint(_ActisenseMsgBuf, msgIdx," None");
-
-
-  if (udp) {
-    WriteBufToUDP(_ActisenseMsgBuf, msgIdx);
-  } else {
-    SendBufToTCP("\r\n");
-    WriteBufToTCP(_ActisenseMsgBuf, msgIdx);
-    SendBufToTCP(">\r\n");
-  }
 
 
 
-  // if ( port->availableForWrite()>msgIdx ) {  // 16.7.2017 did not work yet
-  //   port->write(_ActisenseMsgBuf,msgIdx);
-  // }
-  //   Serial.print("Actisense data:");
-  //PrintBuf(msgIdx,ActisenseMsgBuf);
-  //   Serial.print("\r\n");
+  if (serialsend) { Serial.write(_ActisenseMsgBuf, msgIdx); }
+  if (tcpsend) { WriteBufToTCP(_ActisenseMsgBuf, msgIdx); }
+  if (udpsend) { WriteBufToUDP(_ActisenseMsgBuf, msgIdx); }
 }
