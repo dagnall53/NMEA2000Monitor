@@ -9,8 +9,7 @@
 #define AP_AND_STA      0x00
 #define STA_SLAVE       0xF0
 extern WiFiServer tcpserver;  // allow others to see these! 
-extern WiFiClient tcpclient;
-extern WiFiClient  VNClient;  
+extern WiFiClient tcpclient; 
 extern WiFiUDP Udp;
 
 
@@ -22,8 +21,7 @@ void SetPorts(int UDP, int TCP);    // to set TCP and UDP ports
 void StartWiFi();                   // used to start WIFI  startup
 void CheckWiFi();                  // called in Main loop to do any updates etc. Checks connected etc. 
 boolean Test_T_Connection();     // sets test IsTCPClient boolean also returns if connected.
-bool SetUPVNClient();            // return true or false and sets up hidden connection 
-void VNClientPrint(char * buf);  // use this to send to the VN client 
+
 int Readudpport();    // read the port values
 int Readtcpport();    //
 

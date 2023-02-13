@@ -57,15 +57,16 @@ boolean IsConnected = false;     // used when Mode (was MAIN_MODE) (Here used as
 boolean GateWayIsSet = false;    // to monitor when Gateway has been set up .. used in conjunction with IsConnected
 boolean TCPisAvailable = false;  // to monitor the setting up of TCP lnks, so they can be re-established after EXT network loss and reconnection.
 
-
-const size_t MaxClients = 10;
+//***************Define these in the main sketch ino*****************************
+//extern const size_t MaxClients = 10;
 extern WiFiUDP Udp;
-WiFiClient tcpclient;
+extern WiFiClient tcpclient;
+//extern const unsigned int tcp_def = 3000;          // default (factory) value; zero means TCP is OFF
+//extern WiFiServer tcpserver(tcp_def, MaxClients);  // the port may (will!) be changed later in StartWiFiPorts()
 
-const unsigned int tcp_def = 3000;          // default (factory) value; zero means TCP is OFF
-WiFiServer tcpserver(tcp_def, MaxClients);  // the port may (will!) be changed later in StartWiFiPorts()
-WiFiClient VNClient(tcp_def);               // will set to 3001 ?
+extern WiFiServer tcpserver;              // the port may (will!) be changed later in StartWiFiPorts() as part of any connection
 
+//********************************************************************************
 
 static char msg[300] = { '\0' };  // used in message buildup
 bool ReadIsConnected(void) {
@@ -92,6 +93,8 @@ String IPADDasString(IPAddress IPAD) {
 //      Here to avoid moving away from the IP information that may be
 //      needed during sends.
 //******************************************************************
+//forward declaration
+void _debugPrint(const uint8_t* buffer, size_t size, String msg);
 void SendBufToTCP(const char* buf) {  // simple version of TCP and UDP sending NO operations on the incoming (buf) data!
   if (IsTcpClient) {
     tcpclient.print(buf);
@@ -104,8 +107,7 @@ void WriteBufToTCP(const uint8_t* buffer, size_t size) {  // simple version of T
   }
 }
 
-//forward declaration
-void _debugPrint(const uint8_t* buffer, size_t size, String msg);
+
 
 void WriteBufToUDP(const uint8_t* buffer, size_t size) {  //Writes to BOTH specific UDP IP and the general AP UDP Ip
                                                           // this shows the data to be the same!
@@ -189,6 +191,8 @@ int Readtcpport() {
 }
 
 void SetWIFI(const char* SSID_AP, const char* PW_AP, const char* IP_AP, const char* SSID_ST, const char* PW_ST, const char* IP_ST, byte _MODE) {  // sets defaults if blank
+   _MODE == AP_AND_STA;
+  
   if (SSID_AP != "") {
     strcpy(ssidAP, SSID_AP);
   } else {
@@ -222,7 +226,7 @@ void SetWIFI(const char* SSID_AP, const char* PW_AP, const char* IP_AP, const ch
     UseDHCP = false;
   }
 
-  if ((_MODE != 0xFF) && (_MODE != 0x0F) && (_MODE != 0xF0)) { _MODE == AP_AND_STA; }  // default
+  //if ((_MODE != 0xFF) && (_MODE != 0x0F) && (_MODE != 0xF0)) { _MODE == AP_AND_STA; }  // default
 
   Serial.println("* Setting UP WiFi");
   if (_MODE == AP_AND_STA) {
@@ -231,11 +235,7 @@ void SetWIFI(const char* SSID_AP, const char* PW_AP, const char* IP_AP, const ch
   if (_MODE == AP_ONLY) {
     Serial.printf("  WIFI set for AP only \r\n");
   }
-  if (_MODE == STA_SLAVE) {
-    Serial.printf("  WIFI set for Host Connection\r\n");
-  }
-
-
+ 
   Serial.printf("  AP SSID:%s PW:%s IP:%s   \r\n", ssidAP, passwordAP, ipadAP);
   Serial.printf("  EXT SSID:%s PW:%s IP:%s  \r\n ", ssidST, passwordST, ipadST);
   Serial.printf("  Ports  TCP:%i, UDP %i \r\n", tcpport, udpport);
@@ -309,10 +309,6 @@ IPAddress Get_UDP_IP(IPAddress ip, IPAddress mk) {  // ..needed in ext STA Conne
 }
 
 void EXT_Station_Connect() {
-  if (MAIN_MODE == STA_SLAVE) {
-    SetUPVNClient();
-    WiFi.mode(WIFI_STA);
-  }
   if (GateWayIsSet && IsConnected) { return; }
   if (MAIN_MODE == AP_ONLY) { return; }
   int _STATUS = WiFi.status();
@@ -366,31 +362,31 @@ void EXT_Station_Connect() {
 
 // see also https://randomnerdtutorials.com/esp32-useful-wi-fi-functions-arduino/
 //File > Examples > WiFi > WiFiClientEvents.
-//Based on  wifiClientEvent.ino but // Serial.print and (lots of)  added actions to enable fixed IP, flashing leds  etc
+//Based on  wifiClientEvent.ino but Serial.print and (lots of)  added actions to enable fixed IP, flashing leds  etc
 
 void OnWiFiEvent(WiFiEvent_t event) {
   switch (event) {
     case SYSTEM_EVENT_WIFI_READY:
-      // Serial.println("WiFi interface ready");
+      Serial.println("WiFi interface ready");
       break;
     case SYSTEM_EVENT_SCAN_DONE:
-      // Serial.println("Completed scan for access points");
+      Serial.println("Completed scan for access points");
       break;
     case SYSTEM_EVENT_STA_START:
-      // Serial.println("WiFi client started");
+      Serial.println("WiFi client started");
       break;
     case SYSTEM_EVENT_STA_STOP:
-      // Serial.println("WiFi clients stopped");
+      Serial.println("WiFi clients stopped");
       break;
     case SYSTEM_EVENT_STA_CONNECTED:
-      // Serial.println("Connected to access point");
+      Serial.println("Connected to access point");
       EXT_Station_Connect();  //  do any fixed ip stuff etc. this prints out the connection stuff
                               //NOTE  without the EXT_Station_Connect being run, the gateways etc will not be correct
 
       break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
       if (IsConnected) {
-        // Serial.println("STA_Disconnected (LOST ext network)");
+        Serial.println("STA_Disconnected (LOST ext network)");
         // we HAD been connected! This wil be turned off by the EXT_Station_Connect()// so we only get a single message!
         EXT_Station_Connect();
         GateWayIsSet = false;  // optional?
@@ -401,16 +397,16 @@ void OnWiFiEvent(WiFiEvent_t event) {
       }
       break;
     case SYSTEM_EVENT_STA_AUTHMODE_CHANGE:
-      // Serial.println("Authentication mode of access point has changed");
+      Serial.println("Authentication mode of access point has changed");
       break;
     case SYSTEM_EVENT_STA_GOT_IP:
       //NOTE  without the StartStation being run, the gateways etc will not be correct
-      // Serial.println("* (re-connected) got IP from connected AP");
+      Serial.println("* (re-connected) got IP from connected AP");
       EXT_Station_Connect();  // includes new STA_SLAVE mode
 
       break;
     case SYSTEM_EVENT_STA_LOST_IP:
-      // Serial.println("Lost IP address and IP address is reset to 0");
+      Serial.println("Lost IP address and IP address is reset to 0");
       // new stuff
       IsVNAvailable = false;
       IsConnected = false;
@@ -418,57 +414,57 @@ void OnWiFiEvent(WiFiEvent_t event) {
       WiFi.begin(ssidST);
       break;
     case SYSTEM_EVENT_STA_WPS_ER_SUCCESS:
-      // Serial.println("WiFi Protected Setup (WPS): succeeded in enrollee mode");
+      Serial.println("WiFi Protected Setup (WPS): succeeded in enrollee mode");
       EXT_Station_Connect();  //  do any fixed ip stuff etc. this prints out the connection stuff
       break;
     case SYSTEM_EVENT_STA_WPS_ER_FAILED:
-      // Serial.println("WiFi Protected Setup (WPS): failed in enrollee mode");
+      Serial.println("WiFi Protected Setup (WPS): failed in enrollee mode");
       break;
     case SYSTEM_EVENT_STA_WPS_ER_TIMEOUT:
-      // Serial.println("WiFi Protected Setup (WPS): timeout in enrollee mode");
+      Serial.println("WiFi Protected Setup (WPS): timeout in enrollee mode");
       break;
     case SYSTEM_EVENT_STA_WPS_ER_PIN:
-      // Serial.println("WiFi Protected Setup (WPS): pin code in enrollee mode");
+      Serial.println("WiFi Protected Setup (WPS): pin code in enrollee mode");
       EXT_Station_Connect();  //??  do any fixed ip stuff etc. this prints out the connection stuff
       break;
     case SYSTEM_EVENT_AP_START:
-      // Serial.println("---WiFi access point started---");
+      Serial.println("---WiFi access point started---");
       StartSoftAP_New();
       break;
 
     case SYSTEM_EVENT_AP_STOP:
-      // Serial.println("WiFi access point  stopped");
+      Serial.println("WiFi access point  stopped");
       break;
     case SYSTEM_EVENT_AP_STACONNECTED:
-      // Serial.println("Client connected");
+      Serial.println("Client connected");
       break;
     case SYSTEM_EVENT_AP_STADISCONNECTED:
-      // Serial.println("Client disconnected");
+      Serial.println("Client disconnected");
       break;
     case SYSTEM_EVENT_AP_STAIPASSIGNED:
-      // Serial.println("Assigned IP address to client");
+      Serial.println("Assigned IP address to client");
       EXT_Station_Connect();  //  do any fixed ip stuff etc. this prints out the connection stuff
       break;
     case SYSTEM_EVENT_AP_PROBEREQRECVED:
-      // Serial.println("Received probe request");
+      Serial.println("Received probe request");
       break;
     case SYSTEM_EVENT_GOT_IP6:
-      // Serial.println("IPv6 is preferred");
+      Serial.println("IPv6 is preferred");
       break;
     case SYSTEM_EVENT_ETH_START:
-      // Serial.println("Ethernet started");
+      Serial.println("Ethernet started");
       break;
     case SYSTEM_EVENT_ETH_STOP:
-      // Serial.println("Ethernet stopped");
+      Serial.println("Ethernet stopped");
       break;
     case SYSTEM_EVENT_ETH_CONNECTED:
-      // Serial.println("Ethernet connected");
+      Serial.println("Ethernet connected");
       break;
     case SYSTEM_EVENT_ETH_DISCONNECTED:
-      // Serial.println("Ethernet disconnected");
+      Serial.println("Ethernet disconnected");
       break;
     case SYSTEM_EVENT_ETH_GOT_IP:
-      // Serial.println("Obtained IP address");
+      Serial.println("Obtained IP address");
       break;
     default: break;
   }
@@ -478,27 +474,6 @@ void OnWiFiEvent(WiFiEvent_t event) {
   delay(100);  // to allow serial Debugs print time to send..
 }
 
-bool SetUPVNClient() {  // return true or false and sets up connection
-  if (IsVNAvailable) { return true; }
-  if (!VNClient.connect(VNhost, 3001)) {  // not while as that is blocking!
-    delay(10);
-    if (GateWayIsSet) {
-      // Serial.println("* gateway is setup");
-    } else {
-      // Serial.println("* gateway NOT set");
-    }
-    return false;
-  } else {
-    VNClient.print("Thank you NMEA server!");
-    Serial.println("Connected as client to the NMEA server");
-    IsVNAvailable = true;
-    return true;
-  }
-}
-
-void VNClientPrint(char* buf) {
-  VNClient.print(buf);
-}
 
 void StartWiFi() {
   SoftAPstarted = false;
@@ -508,11 +483,7 @@ void StartWiFi() {
   SoftAPstarted = false;
   GateWayIsSet = false;
   IsConnected = false;
-  //new __ Is this duplicated?
-  if (MAIN_MODE == STA_SLAVE) {
-    SetUPVNClient();
-    WiFi.mode(WIFI_STA);
-  }
+
   //****  Either set AP+STA mode **************
   if (MAIN_MODE == AP_AND_STA) {  // AP+STA Station mode
     WiFi.persistent(false);
@@ -534,7 +505,7 @@ void StartWiFi() {
     delay(100);
   }
   // **** setup AP and Report the AP connection status ******
-  // Serial.println(" WIFI STARTED");
+  Serial.println(" WIFI STARTED");
   MDNS.begin(ssidAP);
   MDNS.begin("NMEA_MASTER");
   MDNS.addService("http", "tcp", 80);  // I hope to change these later
@@ -570,10 +541,6 @@ int Udpread(char* buf, int len) {  // Udp.read
 
 void CheckWiFi() {
   if (!GateWayIsSet) { EXT_Station_Connect(); }                      // keep trying to connect until it gets the gateway !
-  if (GateWayIsSet && !IsVNAvailable && (MAIN_MODE == STA_SLAVE)) {  // ?? and only slave mode .. ? to be tested ?  this is the NON blocking VNClient setup// VNClientTest();
-    SetUPVNClient();
-    return;
-  }
   if (tcpport > 0) {
     IsTcpClient = Test_T_Connection();
   } else {

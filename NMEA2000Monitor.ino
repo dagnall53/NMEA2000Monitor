@@ -12,10 +12,11 @@
 
 
 //#define N2k_CAN_INT_PIN 21
-#define ESP32_CAN_TX_PIN GPIO_NUM_5  // Uncomment this and set right CAN TX pin definition, if you use ESP32 and do not have TX on default IO 16
-#define ESP32_CAN_RX_PIN GPIO_NUM_4  // Uncomment this and set right CAN RX pin definition, if you use ESP32 and do not have RX on default IO 4
+#define ESP32_CAN_TX_PIN GPIO_NUM_5  // Uncomment this and set right CAN TX pin definition, TX on default IO 16
+#define ESP32_CAN_RX_PIN GPIO_NUM_4  // Uncomment this and set right CAN RX pin definition, RX on default IO 4
 
 #include <Arduino.h>
+#include <Update.h>
 #include <N2kMsg.h>
 #include <NMEA2000.h>
 #include <NMEA2000_CAN.h>
@@ -31,14 +32,20 @@
 #include "Webpage.h"
 
 //tActisenseReader ActisenseReader;
-WiFiUDP Udp;
+const size_t MaxClients = 10;
+ WiFiUDP Udp;
+ WiFiClient tcpclient;
+
+const unsigned int tcp_def = 3000;          // default (factory) value; zero means TCP is OFF
+WiFiServer tcpserver(tcp_def, MaxClients);  // the port may (will!) be changed later in StartWiFiPorts()
+
 
 
 
 // Define READ_STREAM to port, where you write data from PC e.g. with NMEA Simulator.
 #define READ_STREAM Serial
-// Define ForwardStream to port, what you listen on PC side. On Arduino Due you can use e.g. SerialUSB
-#define FORWARD_STREAM Serial
+// Define ForwardStream - Where to send the stream to port, what you listen on PC side. On Arduino Due you can use e.g. SerialUSB
+#define FORWARD_STREAM tcpclient // tcpclient? partially works? 
 
 Stream *ReadStream = &READ_STREAM;
 Stream *ForwardStream = &FORWARD_STREAM;
@@ -46,20 +53,20 @@ Stream *ForwardStream = &FORWARD_STREAM;
 unsigned long _loopTiming;
 unsigned long _debugTiming;
 // for testing, lots of options for sending..
-bool SendActisenseUDP = true;
-bool SendActisenseTCP = true;
+bool SendActisenseUDP = false;
+bool SendActisenseTCP = false;
 bool SendActisenseSerial = true;         //(needs UDP as well) // my n2K message "triggered" version
-bool SendActisenseSerialStream = false;  // the "background streaming" approach to USB "
+bool SendActisenseStream = false;  // the "background streaming" approach to USB "
 
 
 void setup() {
   Serial.begin(115200);
-  // TO just use AP (N2000_Monitor), (PW 12345678)
-  SetWIFI("N2000_Monitor", "", "", "", "", "", 0x0F);  // Sets up  AP only
+  // TO just use AP - default - (N2000_Monitor), (PW 12345678)
+      SetWIFI("N2000_Monitor", "", "", "", "", "", 0x0F);  // 0x0F Sets up  AP only 192.168.4.1 access
   // to setup to connect to a Home network use something like this to specify the ssid and pw,, and IP if you want a fixed ip.:
-  // SetWIFI("N2000_Monitor", "", "", "SSID", "password", "192.168.0.120", 0x00);  // Sets Ap + EXT etc with FIXED IP if needed ...
-  
-  SetPorts(2000, 3000);  // just set ports --
+  // SetWIFI("N2000_Monitor", "", "", "SSID", "password", "192.168.0.120", 0x00);  //0x00 Sets Ap + EXT etc with FIXED IP if needed ...
+ 
+  SetPorts(2002, 3003);  // just set ports --
   StartWiFi();
   _WebsocketsSetup();
   _WebServerSetup();
@@ -69,22 +76,23 @@ void setup() {
 
   if (ReadStream != ForwardStream) READ_STREAM.begin(115200);
 
-  FORWARD_STREAM.begin(115200);  // or no serial!
+  // not if tcp FORWARD_STREAM.begin(115200);  // or no serial!
   // ***** Comment out for debugging with less data on serial port
-  if (SendActisenseSerialStream) {
-    NMEA2000.SetForwardStream(ForwardStream);
-  }  // let it send out Actisense on USB so we can use the Actisense NMEA reader
+  // if (SendActisenseStream) {
+  //   NMEA2000.SetForwardStream(ForwardStream);
+  // }  // let it send out Actisense on USB so we can use the Actisense NMEA reader
   //NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);  // Show bus data in clear text (N2K ASCII)
-
 
   // NB.. This crashes ESP32
   // NMEA2000.SetForwardStream(&Udp);
 
+  NMEA2000.SetForwardStream(&tcpclient);
+  
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndSend);
 
   NMEA2000.SetMsgHandler(&HandleNMEA2000Msg);  // not essential, as stream is dealt with in the ParseMessages
 
-  // recieve actisense over wifi and do something out on N2k if needed ??
+  // recieve actisense ( example is from serial.. but we would want wifi) and do something out on N2k if needed ??
   //ActisenseReader.SetReadStream(ReadStream);
   //ActisenseReader.SetDefaultSource(75);
   //ActisenseReader.SetMsgHandler(HandleStreamN2kMsg);
@@ -92,6 +100,8 @@ void setup() {
   NMEA2000.Open();
 
   _loopTiming = millis();
+  Serial.printf("GateWayIsSet <%d>  IsConnected <%d>", ReadGatewaySetup() ,ReadIsConnected());
+  Serial.println(" Setup Complete");
 }
 
 //NMEA 2000 message handler.. NOTE the Stream part (NMEA2000.SetForwardStream) works independently of this handler!!
@@ -100,7 +110,7 @@ void HandleNMEA2000Msg(const tN2kMsg &N2kMsg) {
 
   if (!Read_PauseFlag()) { WebsocketMonitorDataSendf("* PGN:%i Source:%i (%S)", N2kMsg.PGN, N2kMsg.Source, PGNDecode(N2kMsg.PGN)); }  //
   if (!SendActisenseUDP) { SendBufToUDPf("--PGN<%i><%S>\r\n", N2kMsg.PGN, PGNDecode(N2kMsg.PGN)); } // SHOW THE pgn AND DESCRIPTION ON UDP, PORT 2002
-  if (!SendActisenseTCP) { SendBufToTCPf("--PGN<%i><%S>\r\n", N2kMsg.PGN, PGNDecode(N2kMsg.PGN)); } // SHOW THE pgn AND DESCRIPTION ON tcp, PORT 2002
+  if (!SendActisenseTCP) { SendBufToTCPf("--PGN<%i><%S>\r\n", N2kMsg.PGN, PGNDecode(N2kMsg.PGN)); } // SHOW THE pgn AND DESCRIPTION ON tcp, PORT 3003
   _SendinActisenseFormat(N2kMsg, SendActisenseUDP, SendActisenseTCP, SendActisenseSerial);
 }
 
@@ -114,7 +124,7 @@ extern char ssidAP[16];   // ssid of the network to create in AP mode
 extern char ssidST[16];   // ssid of the network to connect in STA mode
 
 void Animate() {  // inserted as a test of how to change Text in an identified "id" in a div on a webpage using websocks.
-  WebsocketDataSendf("WEBPAGE TEXT1 <small><center> External-Network_IP:<b><i> %i.%i.%i.%i</i></b> </small></center>", sta_ip[0], sta_ip[1], sta_ip[2], sta_ip[3]);
+  WebsocketDataSendf("WEBPAGE TEXT1 <center> <b>Actisense Settings: UDP{%i} TCP{%i}  Serial{%i}</b> </center>",SendActisenseUDP,SendActisenseTCP,SendActisenseSerial );
   WebsocketDataSendf("WEBPAGE TEXT0 Running Time:%i ", millis() / 1000);  // Spacing Critical between "WEBPAGE" and "ID"- there must be only one space!
   if (ReadIsConnected() && ReadGatewaySetup()) {
     WebsocketDataSendf("WEBPAGE TEXTIP SSID_AP:<b><i>%s</i></b>   Connected to:<b><i>%s</i></b> @IP:<b><i>%i.%i.%i.%i</i></b>  ",
@@ -129,7 +139,7 @@ extern bool IsTcpClient;
 void loop() {
   CheckWiFi();
   NMEA2000.ParseMessages();
-  //  ActisenseReader.ParseMessages(); //Switch on if we are using the Actisense streams
+  //  ActisenseReader.ParseMessages(); //Switch on if we are using the Actisense streams >n2k
   WEBSERVE_LOOP();
   _WebsocketLOOP();
   if (_loopTiming <= millis()) {
@@ -140,58 +150,59 @@ void loop() {
   }
 }
 
-char *PGNDecode(int PGN) {  // decode the PGN to a readable name.. Useful for monitoring the bus?
+char * PGNDecode(int PGN) {  // decode the PGN to a readable name.. Useful for monitoring the bus?
   //https://endige.com/2050/nmea-2000-pgns-deciphered/
   // see also https://canboat.github.io/canboat/canboat.xml#pgn-list
   switch (PGN) {
-    case 65311: return "Magnetic Variation (Raymarine Proprietary)"; break;
-    case 126720: return "Raymarine Device ID"; break;
-    case 126992: return "System Time"; break;
-    case 126993: return "Heartbeat"; break;
-    case 127237: return "Heading/Track Control"; break;
-    case 127245: return "Rudder"; break;
-    case 127250: return "Vessel Heading"; break;
-    case 127251: return "Rate of Turn"; break;
-    case 127258: return "Magnetic Variation"; break;
-    case 127488: return "Engine Parameters, Rapid Update"; break;
-    case 127508: return "Battery Status"; break;
-    case 127513: return "Battery Configuration Status"; break;
-    case 128259: return "Speed, Water referenced"; break;
-    case 128267: return "Water Depth"; break;
-    case 128275: return "Distance Log"; break;
-    case 129025: return "Position, Rapid Update"; break;
-    case 129026: return "COG & SOG, Rapid Update"; break;
-    case 129029: return "GNSS Position Data"; break;
-    case 129033: return "Local Time Offset"; break;
-    case 129044: return "Datum"; break;
-    case 129283: return "Cross Track Error"; break;
-    case 129284: return "Navigation Data"; break;
-    case 129285: return "Navigation — Route/WP information"; break;
-    case 129291: return "Set & Drift, Rapid Update"; break;
-    case 129539: return "GNSS DOPs"; break;
-    case 129540: return "GNSS Sats in View"; break;
-    case 130066: return "Route and WP Service — Route/WP— List Attributes"; break;
-    case 130067: return "Route and WP Service — Route — WP Name & Position"; break;
-    case 130074: return "Route and WP Service — WP List — WP Name & Position"; break;
-    case 130306: return "Wind Data"; break;
-    case 130310: return "Environmental Parameters"; break;
-    case 130311: return "Environmental Parameters"; break;
-    case 130312: return "Temperature"; break;
-    case 130313: return "Humidity"; break;
-    case 130314: return "Actual Pressure"; break;
-    case 130316: return "Temperature, Extended Range"; break;
-    case 129038: return "AIS Class A Position Report"; break;
-    case 129039: return "AIS Class B Position Report"; break;
-    case 129040: return "AIS Class B Extended Position Report"; break;
-    case 129041: return "AIS Aids to Navigation (AtoN) Report"; break;
-    case 129793: return "AIS UTC and Date Report"; break;
-    case 129794: return "AIS Class A Static and Voyage Related Data"; break;
-    case 129798: return "AIS SAR Aircraft Position Report"; break;
-    case 129809: return "AIS Class B “CS” Static Data Report, Part A"; break;
-    case 129810: return "AIS Class B “CS” Static Data Report, Part B"; break;
+    case 65311: return (char*) "Magnetic Variation (Raymarine Proprietary)"; break;
+    case 60928: return (char*) "Address claimed message"; break;
+    case 126720: return (char*) "Raymarine Device ID"; break;
+    case 126992: return (char*) "System Time"; break;
+    case 126993: return (char*) "Heartbeat"; break;
+    case 127237: return (char*) "Heading/Track Control"; break;
+    case 127245: return (char*) "Rudder"; break;
+    case 127250: return (char*) "Vessel Heading"; break;
+    case 127251: return (char*) "Rate of Turn"; break;
+    case 127258: return (char*) "Magnetic Variation"; break;
+    case 127488: return (char*) "Engine Parameters, Rapid Update"; break;
+    case 127508: return (char*) "Battery Status"; break;
+    case 127513: return (char*) "Battery Configuration Status"; break;
+    case 128259: return (char*) "Speed, Water referenced"; break;
+    case 128267: return (char*) "Water Depth"; break;
+    case 128275: return (char*) "Distance Log"; break;
+    case 129025: return (char*) "Position, Rapid Update"; break;
+    case 129026: return (char*) "COG & SOG, Rapid Update"; break;
+    case 129029: return (char*) "GNSS Position Data"; break;
+    case 129033: return (char*) "Local Time Offset"; break;
+    case 129044: return (char*) "Datum"; break;
+    case 129283: return (char*) "Cross Track Error"; break;
+    case 129284: return (char*) "Navigation Data"; break;
+    case 129285: return (char*) "Navigation — Route/WP information"; break;
+    case 129291: return (char*) "Set & Drift, Rapid Update"; break;
+    case 129539: return (char*) "GNSS DOPs"; break;
+    case 129540: return (char*) "GNSS Sats in View"; break;
+    case 130066: return (char*) "Route and WP Service — Route/WP— List Attributes"; break;
+    case 130067: return (char*) "Route and WP Service — Route — WP Name & Position"; break;
+    case 130074: return (char*) "Route and WP Service — WP List — WP Name & Position"; break;
+    case 130306: return (char*) "Wind Data"; break;
+    case 130310: return (char*) "Environmental Parameters"; break;
+    case 130311: return (char*) "Environmental Parameters"; break;
+    case 130312: return (char*) "Temperature"; break;
+    case 130313: return (char*) "Humidity"; break;
+    case 130314: return (char*) "Actual Pressure"; break;
+    case 130316: return (char*) "Temperature, Extended Range"; break;
+    case 129038: return (char*) "AIS Class A Position Report"; break;
+    case 129039: return (char*) "AIS Class B Position Report"; break;
+    case 129040: return (char*) "AIS Class B Extended Position Report"; break;
+    case 129041: return (char*) "AIS Aids to Navigation (AtoN) Report"; break;
+    case 129793: return (char*) "AIS UTC and Date Report"; break;
+    case 129794: return (char*) "AIS Class A Static and Voyage Related Data"; break;
+    case 129798: return (char*) "AIS SAR Aircraft Position Report"; break;
+    case 129809: return (char*) "AIS Class B “CS” Static Data Report, Part A"; break;
+    case 129810: return (char*) "AIS Class B “CS” Static Data Report, Part B"; break;
   }
 
-  return "unknown";
+  return (char*) "unknown";
 }
 
 

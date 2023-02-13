@@ -12,7 +12,7 @@ extern void handleTest();
 extern void SetNMEAFLAG(bool set);   // or possibly could have just had ext bool ?
 extern void SetPauseFlag(bool set);  // but it demonstrates that stuff in the .ino IS NOT "global"
 
-
+extern bool SendActisenseUDP,SendActisenseTCP,SendActisenseSerial;
 
 
 void webSocketDataInterpreter(WebSocketsServer &WEBSOCKETOBJECT, String WEBSOCKETDATA) {  //not used ?
@@ -31,11 +31,11 @@ void webSocketDataInterpreter(WebSocketsServer &WEBSOCKETOBJECT, String WEBSOCKE
     //Look at start of line for tokens, add +1 to length to account for space
     topLevelToken = "WEBMONITOR";
     String terminalCommand = WEBSOCKETDATA.substring(topLevelToken.length() + 1);
-    if (terminalCommand.startsWith("NMEA")) {
-      SetNMEAFLAG(true);
+    if (terminalCommand.startsWith("Actisense")) {
+      SendActisenseUDP=true;SendActisenseTCP=true;SendActisenseSerial=true;
     }
-    if (terminalCommand.startsWith("PGN")) {
-      SetNMEAFLAG(false);
+    if (terminalCommand.startsWith("NOActisense")) {
+      SendActisenseUDP=false;SendActisenseTCP=false;SendActisenseSerial=false;
     }
 
     if (terminalCommand.startsWith("PAUSE")) {
